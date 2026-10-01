@@ -276,6 +276,95 @@ assert_eq 0 "$RUN_STATUS" "DSH_SKILLS_DIR install exits 0"
   || fail "DSH_SKILLS_DIR leaves DSH_HOME unused"
 
 # ---------------------------------------------------------------------------
+# 3c. kilo-code (Kilo Code) — user-wide default destination + KILO_AGENTS_DIR
+#
+# Kilo reads subagents from ${HOME}/.config/kilo/agent/ (note: `agent`, singular)
+# for a user and .kilo/agents/ for a project, and takes each agent's identity
+# from the FILENAME — its frontmatter carries `description` + `mode: all` and no
+# `name:` key. So the two things worth pinning here are where the .md lands and
+# that it lands verbatim: install_file must not rewrite the converted frontmatter.
+#
+# The generated integrations/ tree is gitignored and convert.sh runs on demand,
+# so this case builds its own one-agent repo instead of depending on the real
+# one being converted. install.sh derives INTEGRATIONS and REPO_ROOT from its own
+# location, which is what makes the copy work.
+# ---------------------------------------------------------------------------
+kilo_fixture() {
+  # kilo_fixture <dir> — a throwaway repo with one agent and its converted
+  # kilo-code output; echoes the install.sh path inside it.
+  local root="$1"
+  local repo="$root/repo"
+  mkdir -p "$repo/scripts" "$repo/engineering" "$repo/integrations/kilo-code/agents"
+  cp "$INSTALL" "$SCRIPT_DIR/lib.sh" "$repo/scripts/"
+  cat > "$repo/divisions.json" <<'EOF'
+{
+  "divisions": {
+    "engineering": {}
+  }
+}
+EOF
+  cat > "$repo/engineering/shared-agent.md" <<'EOF'
+---
+name: Shared Agent
+description: Example agent
+color: blue
+---
+
+## Core Mission
+
+Do the example thing.
+EOF
+  cat > "$repo/integrations/kilo-code/agents/shared-agent.md" <<'EOF'
+---
+description: 'Example agent'
+mode: all
+---
+
+## Core Mission
+
+Do the example thing.
+EOF
+  printf '%s' "$repo/scripts/install.sh"
+}
+
+home="$(sandbox kilo-code-default)"
+kilo_repo="$(kilo_fixture "$home")"
+RUN_OUT="$(HOME="$home" "$kilo_repo" --no-interactive --no-convert --tool kilo-code 2>&1)"; RUN_STATUS=$?
+assert_eq 0 "$RUN_STATUS" "kilo-code install exits 0"
+assert_eq 'Example agent' \
+  "$(get_field description "$home/.config/kilo/agent/shared-agent.md")" \
+  "kilo-code installs agents to \$HOME/.config/kilo/agent"
+assert_eq 'all' \
+  "$(awk '$0 ~ "^mode:" { print $2; exit }' "$home/.config/kilo/agent/shared-agent.md")" \
+  "the installed kilo-code file keeps mode: all"
+assert_eq '' \
+  "$(awk '$0 ~ "^name:" { print $2; exit }' "$home/.config/kilo/agent/shared-agent.md")" \
+  "the installed kilo-code file has no name: key (Kilo derives it from the filename)"
+assert_eq "$(cksum < "$home/repo/integrations/kilo-code/agents/shared-agent.md")" \
+  "$(cksum < "$home/.config/kilo/agent/shared-agent.md")" \
+  "kilo-code installs the converted file byte-for-byte"
+
+# KILO_AGENTS_DIR is the destination override (KILO_CONFIG_DIR, like Claude's,
+# is a config ROOT that install.sh appends `agent/` to).
+home="$(sandbox kilo-code-env-override)"
+kilo_repo="$(kilo_fixture "$home")"
+kilo_dest="$home/project/.kilo/agents"
+RUN_OUT="$(HOME="$home" KILO_AGENTS_DIR="$kilo_dest" "$kilo_repo" --no-interactive \
+  --no-convert --tool kilo-code 2>&1)"; RUN_STATUS=$?
+assert_eq 0 "$RUN_STATUS" "KILO_AGENTS_DIR install exits 0"
+assert_eq 1 "$(count_md "$kilo_dest")" "KILO_AGENTS_DIR overrides the default destination"
+assert_eq 0 "$(count_md "$home/.config/kilo/agent")" "KILO_AGENTS_DIR leaves the user default empty"
+
+home="$(sandbox kilo-code-config-dir)"
+kilo_repo="$(kilo_fixture "$home")"
+kilo_cfg="$home/custom-kilo-config"
+RUN_OUT="$(HOME="$home" KILO_CONFIG_DIR="$kilo_cfg" "$kilo_repo" --no-interactive \
+  --no-convert --tool kilo-code 2>&1)"; RUN_STATUS=$?
+assert_eq 0 "$RUN_STATUS" "KILO_CONFIG_DIR install exits 0"
+assert_eq 1 "$(count_md "$kilo_cfg/agent")" "KILO_CONFIG_DIR installs agents into \$KILO_CONFIG_DIR/agent"
+assert_eq 0 "$(count_md "$kilo_cfg")" "KILO_CONFIG_DIR leaves the config root itself empty"
+
+# ---------------------------------------------------------------------------
 # 4. Paths with spaces (regression: word-splitting in the install loop)
 # ---------------------------------------------------------------------------
 echo ""

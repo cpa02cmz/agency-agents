@@ -28,6 +28,7 @@
 #   hermes       -- Copy lazy-router plugin to ~/.hermes/plugins/ and enable it
 #   vibe         -- Copy agents and prompts to ~/.vibe/agents/ and ~/.vibe/prompts/
 #   dsh          -- Copy skills to ~/.dsh/skills/ (user-wide) or .dsh/skills/ (project)
+#   kilo-code    -- Copy agents to ~/.config/kilo/agent/ (user-wide) or .kilo/agents/ (project)
 #   all          -- Install for all detected tools (default)
 #
 # Selection (compose freely; empty = everything):
@@ -53,7 +54,7 @@
 # Env: CLAUDE_CONFIG_DIR, COPILOT_AGENT_DIR, CURSOR_RULES_DIR, GEMINI_AGENTS_DIR,
 #      OPENCODE_AGENTS_DIR, OPENCLAW_DIR, QWEN_AGENTS_DIR, ZCODE_AGENTS_DIR,
 #      CODEX_AGENTS_DIR, OSAURUS_SKILLS_DIR, HERMES_HOME, HERMES_PLUGIN_DIR,
-#      VIBE_HOME, DSH_HOME, DSH_SKILLS_DIR
+#      VIBE_HOME, DSH_HOME, DSH_SKILLS_DIR, KILO_AGENTS_DIR
 #      override default install paths (checked before hardcoded defaults).
 #
 # --- USAGE-END ---  (sentinel for usage(); do not remove)
@@ -132,7 +133,7 @@ INTEGRATIONS="$REPO_ROOT/integrations"
 # shellcheck source=lib.sh
 . "$SCRIPT_DIR/lib.sh"
 
-ALL_TOOLS=(claude-code copilot antigravity gemini-cli opencode openclaw cursor aider windsurf qwen zcode kimi codex osaurus hermes vibe dsh)
+ALL_TOOLS=(claude-code copilot antigravity gemini-cli opencode openclaw cursor aider windsurf qwen zcode kimi codex osaurus hermes vibe dsh kilo-code)
 
 # The division set is derived from divisions.json (the single source of truth)
 # so the installer can never drift from the catalog — a hardcoded copy silently
@@ -316,7 +317,7 @@ install_file() {
 path_collision_group() {
   case "$1" in
     claude-code|copilot)             printf 'raw-source-md' ;;  # <division>-<slug>.md
-    gemini-cli|opencode|qwen|zcode)  printf 'slug-md' ;;        # <slug>.md
+    gemini-cli|opencode|qwen|zcode|kilo-code)  printf 'slug-md' ;;        # <slug>.md
     antigravity|osaurus|dsh)         printf 'agency-skill' ;;   # agency-<slug>/SKILL.md
     *)                               printf '' ;;
   esac
@@ -357,6 +358,7 @@ resolve_dest() {
     hermes)      var="HERMES_PLUGIN_DIR" ;;
     vibe)        var="VIBE_HOME" ;;
     dsh)         var="DSH_SKILLS_DIR" ;;
+    kilo-code)   var="KILO_AGENTS_DIR" ;;
   esac
   if [[ -n "$var" && -n "${!var:-}" ]]; then
     if [[ "$tool" == "claude-code" ]]; then
@@ -385,6 +387,7 @@ resolve_tool_path() {
     kimi) bin="kimi" ;; codex) bin="codex" ;; antigravity) bin="" ;;
     osaurus) bin="osaurus" ;; hermes) bin="hermes" ;; vibe) bin="vibe" ;;
     dsh) bin="dsh" ;;
+    kilo-code) bin="kilo" ;;
   esac
   [[ -n "$bin" ]] && command -v "$bin" 2>/dev/null
 }
@@ -499,6 +502,7 @@ detect_osaurus()      { command -v osaurus >/dev/null 2>&1 || [[ -d "${HOME}/.os
 detect_hermes()       { command -v hermes >/dev/null 2>&1 || [[ -d "${HERMES_HOME:-${HOME}/.hermes}" ]]; }
 detect_vibe()         { command -v vibe >/dev/null 2>&1 || [[ -d "${VIBE_HOME:-${HOME}/.vibe}" ]]; }
 detect_dsh()          { command -v dsh >/dev/null 2>&1 || [[ -d "${DSH_HOME:-${HOME}/.dsh}" ]]; }
+detect_kilo_code()    { command -v kilo >/dev/null 2>&1 || [[ -d "${KILO_CONFIG_DIR:-${HOME}/.config/kilo}" || -d "${HOME}/.kilo" ]]; }
 
 is_detected() {
   case "$1" in
@@ -519,6 +523,7 @@ is_detected() {
     hermes)      detect_hermes      ;;
     vibe)        detect_vibe        ;;
     dsh)         detect_dsh         ;;
+    kilo-code)   detect_kilo_code   ;;
     *)           return 1 ;;
   esac
 }
@@ -543,6 +548,7 @@ tool_label() {
     hermes)      printf "%-14s  %s" "Hermes"       "(~/.hermes/plugins)"     ;;
     vibe)        printf "%-14s  %s" "Mistral Vibe" "(~/.vibe/agents)"        ;;
     dsh)         printf "%-14s  %s" "DeepSeek Harness" "(~/.dsh/skills)"     ;;
+    kilo-code)   printf "%-14s  %s" "Kilo Code"    "(~/.config/kilo/agent)" ;;
   esac
 }
 
@@ -666,7 +672,7 @@ tool_simple_name() {
     claude-code) echo "Claude Code";; copilot) echo "Copilot";; antigravity) echo "Antigravity";;
     gemini-cli) echo "Gemini CLI";; opencode) echo "OpenCode";; openclaw) echo "OpenClaw";;
     cursor) echo "Cursor";; aider) echo "Aider";; windsurf) echo "Windsurf";;
-    qwen) echo "Qwen Code";; zcode) echo "ZCode";; kimi) echo "Kimi Code";; codex) echo "Codex";; osaurus) echo "Osaurus";; dsh) echo "DeepSeek Harness";; *) echo "$1";;
+    qwen) echo "Qwen Code";; zcode) echo "ZCode";; kimi) echo "Kimi Code";; codex) echo "Codex";; osaurus) echo "Osaurus";; dsh) echo "DeepSeek Harness";; kilo-code) echo "Kilo Code";; *) echo "$1";;
   esac
 }
 
@@ -1108,6 +1114,29 @@ install_zcode() {
   warn "ZCode: set ZCODE_AGENTS_DIR=.zcode/agents (in a project) to install there instead."
 }
 
+install_kilo_code() {
+  local src="$INTEGRATIONS/kilo-code/agents"
+  local dest; dest="$(resolve_dest kilo-code "${KILO_CONFIG_DIR:-${HOME}/.config/kilo}/agent")"
+  local count=0
+
+  [[ -d "$src" ]] || { err "integrations/kilo-code/agents missing. Run convert.sh first."; return 1; }
+
+  mkdir -p "$dest"
+
+  local f
+  while IFS= read -r -d '' f; do
+    slug_allowed "$(basename "$f" .md)" || continue
+    install_file "$f" "$dest/"
+    incr count
+  done < <(find "$src" -maxdepth 1 -name "*.md" -print0)
+
+  ok "Kilo Code: installed $count agents to $dest"
+  warn "Kilo Code: user-wide. Set KILO_AGENTS_DIR=.kilo/agents (in a project) to install there instead."
+  if command -v kilo >/dev/null 2>&1; then
+    warn "Kilo Code: restart the session (or run 'kilo --version') so it picks up the new agents."
+  fi
+}
+
 install_kimi() {
   local src="$INTEGRATIONS/kimi"
   local dest; dest="$(resolve_dest kimi "${HOME}/.config/kimi/agents")"
@@ -1507,6 +1536,7 @@ install_tool() {
     hermes)      install_hermes      ;;
     vibe)        install_vibe        ;;
     dsh)         install_dsh         ;;
+    kilo-code)   install_kilo_code   ;;
   esac
 }
 

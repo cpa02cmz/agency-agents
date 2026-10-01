@@ -20,6 +20,7 @@ supported agentic coding tools.
 - **[Mistral Vibe](vibe/README.md)** — `.toml` agents + prompt files generated in `vibe/`
 - **Osaurus** -- `SKILL.md` skills generated in `osaurus/`
 - **[Hermes](hermes/README.md)** -- lazy-router plugin generated in `hermes/`
+- **[Kilo Code](kilo-code/README.md)** — `.md` agent files generated in `kilo-code/agents/`
 
 ## Quick Install
 
@@ -43,6 +44,10 @@ supported agentic coding tools.
 # Qwen Code also needs generated SubAgent files on a fresh clone
 ./scripts/convert.sh --tool qwen
 ./scripts/install.sh --tool qwen
+
+# Kilo Code also needs generated agent files on a fresh clone
+./scripts/convert.sh --tool kilo-code
+./scripts/install.sh --tool kilo-code
 ```
 
 If you install OpenClaw and the gateway is already running, restart it after installation:
@@ -264,3 +269,23 @@ directly, run the converter before installing from a fresh clone:
 ```
 
 See [codex/README.md](codex/README.md) for details.
+
+---
+
+## Kilo Code
+
+Each agent becomes a `.md` file in `kilo-code/agents/`, installed to
+`~/.config/kilo/agent/` (user) or `.kilo/agents/` (project). Kilo takes the
+agent name from the filename, so the frontmatter carries only `description` and
+`mode: all` — the latter makes each agent both selectable in the agent picker
+and delegatable via the `task` tool.
+
+Because the agent files are generated artifacts, run the converter first on a
+fresh clone:
+
+```bash
+./scripts/convert.sh --tool kilo-code
+./scripts/install.sh --tool kilo-code
+```
+
+See [kilo-code/README.md](kilo-code/README.md) for details.

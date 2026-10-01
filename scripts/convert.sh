@@ -25,6 +25,7 @@
 #   hermes       — Hermes lazy-router plugin (one plugin + on-disk agent index)
 #   vibe         — Mistral Vibe agent TOML + prompt files (~/.vibe/agents/*.toml + ~/.vibe/prompts/*.md)
 #   dsh          — DeepSeek Harness skill files (~/.dsh/skills/<name>/SKILL.md · .dsh/skills/<name>/SKILL.md)
+#   kilo-code    — Kilo Code agent files (.kilo/agents/*.md · ~/.config/kilo/agent/*.md)
 #   all          — All tools (default)
 #
 # Output is written to integrations/<tool>/ relative to the repo root.
@@ -78,7 +79,7 @@ AGENT_DIRS=(
 
 # --- Usage ---
 usage() {
-  sed -n '3,28p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '3,29p' "$0" | sed 's/^# \{0,1\}//'
   exit 0
 }
 
@@ -528,6 +529,34 @@ HEREDOC
   fi
 }
 
+convert_kilo_code() {
+  local file="$1"
+  local name description slug outfile body
+
+  name="$(get_field "name" "$file")"
+  description="$(get_field "description" "$file")"
+  slug="$(slugify "$name")"
+  body="$(get_body "$file")"
+
+  outfile="$OUT_DIR/kilo-code/agents/${slug}.md"
+  mkdir -p "$(dirname "$outfile")"
+
+  # Kilo Code agent format: .md with YAML frontmatter read from .kilo/agents/
+  # (or .kilo/agent/) for a project and ~/.config/kilo/agent/ globally. Valid
+  # properties are description, mode (primary|subagent|all), color, model and
+  # permission — there is no tools key, so nothing is emitted for it. Kilo
+  # derives the agent name from the filename, so no name key either. mode: all
+  # keeps the roster selectable and delegatable, matching the other converter
+  # outputs where the persona is a general-purpose subagent.
+  cat > "$outfile" <<HEREDOC
+---
+description: $(yaml_quote "$description")
+mode: all
+---
+${body}
+HEREDOC
+}
+
 convert_kimi() {
   local file="$1"
   local name description slug outdir agent_file body
@@ -763,6 +792,7 @@ run_conversions() {
         openclaw)    convert_openclaw    "$file" ;;
         qwen)        convert_qwen        "$file" ;;
         zcode)       convert_zcode       "$file" ;;
+        kilo-code)   convert_kilo_code   "$file" ;;
         kimi)        convert_kimi        "$file" ;;
         osaurus)     convert_osaurus     "$file" ;;
         dsh)         convert_dsh         "$file" ;;
@@ -797,7 +827,7 @@ main() {
     esac
   done
 
-  local valid_tools=("antigravity" "gemini-cli" "opencode" "cursor" "aider" "windsurf" "openclaw" "qwen" "zcode" "kimi" "codex" "osaurus" "hermes" "vibe" "dsh" "all")
+  local valid_tools=("antigravity" "gemini-cli" "opencode" "cursor" "aider" "windsurf" "openclaw" "qwen" "zcode" "kilo-code" "kimi" "codex" "osaurus" "hermes" "vibe" "dsh" "all")
   local valid=false
   for t in "${valid_tools[@]}"; do [[ "$t" == "$tool" ]] && valid=true && break; done
   if ! $valid; then
@@ -818,7 +848,7 @@ main() {
 
   local tools_to_run=()
   if [[ "$tool" == "all" ]]; then
-    tools_to_run=("antigravity" "gemini-cli" "opencode" "cursor" "aider" "windsurf" "openclaw" "qwen" "zcode" "kimi" "codex" "osaurus" "hermes" "vibe" "dsh")
+    tools_to_run=("antigravity" "gemini-cli" "opencode" "cursor" "aider" "windsurf" "openclaw" "qwen" "zcode" "kilo-code" "kimi" "codex" "osaurus" "hermes" "vibe" "dsh")
   else
     tools_to_run=("$tool")
   fi
@@ -829,7 +859,7 @@ main() {
 
   if $use_parallel && [[ "$tool" == "all" ]]; then
     # Tools that write to separate dirs can run in parallel; buffer output so each tool's output stays together
-    local parallel_tools=(antigravity gemini-cli opencode cursor openclaw qwen zcode kimi codex osaurus hermes vibe dsh)
+    local parallel_tools=(antigravity gemini-cli opencode cursor openclaw qwen zcode kilo-code kimi codex osaurus hermes vibe dsh)
     local parallel_out_dir
     parallel_out_dir="$(mktemp -d "${TMPDIR:-/tmp}/agency-convert-parallel.XXXXXX")"
     PARALLEL_OUT_DIR="$parallel_out_dir"

@@ -3,6 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/agency-convert-failure.XXXXXX")"
 trap 'rm -rf "$FIXTURE"' EXIT
 
@@ -30,6 +31,11 @@ printf 'import sys\n' > "$FIXTURE/repo/scripts/build-hermes-plugin.py"
 TMPDIR="$FIXTURE" "$FIXTURE/repo/scripts/convert.sh" \
   --tool all --parallel --jobs 2 --out "$FIXTURE/output" \
   > "$FIXTURE/success.log" 2>&1
-grep -Fq 'Done. 15 tools' "$FIXTURE/success.log"
+# Tool count is derived from convert.sh's own valid_tools list (minus the "all"
+# pseudo-tool) so adding a converter updates this expectation instead of failing
+# here. claude-code/copilot are install-only and are not in that list.
+tool_count="$(grep -oE 'valid_tools=\([^)]*\)' "$SCRIPT_DIR/convert.sh" | head -1 \
+  | sed -E 's/^valid_tools=\(//; s/\)$//' | tr -d '"' | tr ' \t' '\n' | grep -E '^[a-z0-9-]+$' | grep -vx 'all' | grep -c .)"
+grep -Fq "Done. $tool_count tools" "$FIXTURE/success.log"
 
 echo "PASS: parallel converter reports failure and cleans buffered logs"

@@ -66,7 +66,7 @@ Each agent file contains:
 
 Browse the agents below and copy/adapt the ones you need!
 
-### Option 4: Use with Other Tools (GitHub Copilot, Antigravity, Gemini CLI, OpenCode, OpenClaw, Cursor, Aider, Windsurf, Kimi Code, Codex, Osaurus, Hermes, Mistral Vibe, DeepSeek Harness)
+### Option 4: Use with Other Tools (GitHub Copilot, Antigravity, Gemini CLI, OpenCode, OpenClaw, Cursor, Aider, Windsurf, Kimi Code, Codex, Osaurus, Hermes, Mistral Vibe, DeepSeek Harness, Kilo Code)
 
 ```bash
 # Step 1 -- generate integration files for all supported tools
@@ -90,6 +90,7 @@ Browse the agents below and copy/adapt the ones you need!
 ./scripts/install.sh --tool hermes
 ./scripts/install.sh --tool vibe
 ./scripts/install.sh --tool dsh
+./scripts/install.sh --tool kilo-code
 ```
 
 **Install only the teams you need** (not everyone wants every division):
@@ -746,6 +747,7 @@ The Agency works natively with Claude Code, and ships conversion + install scrip
 - **Osaurus** -- `SKILL.md` skills -> `~/.osaurus/skills/`
 - **[Hermes](integrations/hermes/README.md)** -- lazy-router plugin -> `~/.hermes/plugins/`
 - **[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)** — `SKILL.md` skills → `~/.dsh/skills/` (user) or `.dsh/skills/` (project)
+- **[Kilo Code](https://kilocode.ai)** — `.md` agent files → `~/.config/kilo/agent/` (user) or `.kilo/agents/` (project)
 
 ---
 
@@ -1080,6 +1082,31 @@ Activate in DeepSeek Harness — user- and model-invocable by default:
 ```
 
 See [integrations/dsh/README.md](integrations/dsh/README.md) for details.
+</details>
+
+<details>
+<summary><strong>Kilo Code</strong></summary>
+
+Each agent becomes a `.md` file in `integrations/kilo-code/agents/`, installed to `~/.config/kilo/agent/` (user) or `.kilo/agents/` (project). Kilo takes the agent name from the filename, so the frontmatter carries only `description` and `mode: all`.
+
+```bash
+./scripts/convert.sh --tool kilo-code
+./scripts/install.sh --tool kilo-code
+```
+
+Project-scoped install (run from your project root):
+
+```bash
+KILO_AGENTS_DIR=.kilo/agents ./scripts/install.sh --tool kilo-code
+```
+
+Activate in Kilo Code — `mode: all` puts each agent in the agent picker *and* makes it delegatable via the `task` tool:
+
+```
+@frontend-developer review this React component
+```
+
+See [integrations/kilo-code/README.md](integrations/kilo-code/README.md) for details.
 </details>
 
 ---
