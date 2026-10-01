@@ -97,7 +97,7 @@ N="$(wc -l < "$SOURCES" | tr -d ' ')"
 [[ "$N" -gt 0 ]] || { echo "ERROR: no source agents found." >&2; exit 2; }
 
 # --- generate: every converted tool, sequentially, into a scratch dir ---------
-TOOLS="antigravity gemini-cli opencode cursor aider windsurf openclaw qwen zcode kimi codex osaurus hermes vibe dsh"
+TOOLS="antigravity gemini-cli opencode cursor aider windsurf openclaw qwen zcode kimi codex osaurus hermes vibe dsh kilo-code"
 if [[ -z "$OUT" ]]; then
   OUT="$TMP/out"; mkdir -p "$OUT"
   for t in $TOOLS; do
@@ -147,6 +147,7 @@ SPEC = {
     "opencode":    ("agents/*.md",       "yaml-fm"),
     "qwen":        ("agents/*.md",       "yaml-fm"),
     "zcode":       ("agents/*.md",       "yaml-fm"),
+    "kilo-code":   ("agents/*.md",       "yaml-fm"),
     "cursor":      ("rules/*.mdc",       "yaml-fm"),
     "codex":       ("agents/*.toml",     "toml"),
     "vibe":        ("agents/*.toml",     "toml-id"),
@@ -293,6 +294,35 @@ for tool in TOOLS:
                 if bad_trip <= 3: bad(f"{tool}: {slug} companion file missing: {os.path.relpath(companion, OUT)}")
     report(tool, bad_parse, bad_trip,
            "parse and round-trip" if fmt in ("yaml-fm", "toml") else "parse, carry their slug, and have their prose file")
+
+# --- Layer A (kilo-code frontmatter shape) -----------------------------------
+# Kilo Code reads a subagent's frontmatter as `description` + `mode: all` and
+# takes the agent's identity from the FILENAME. Emitting a `name:` key is not
+# merely cosmetic: Kilo does not use it, so a value that drifted from the slug
+# would never be caught by the round-trip above, which only checks description.
+# Assert both halves of the contract directly.
+kilo_bad = 0
+for f in sorted(glob.glob(os.path.join(OUT, "kilo-code", "agents", "*.md"))):
+    rel_ = os.path.relpath(f, OUT)
+    try:
+        data = frontmatter(open(f, encoding="utf-8").read())
+        if not isinstance(data, dict): raise ValueError("top level is not a mapping")
+    except Exception as e:
+        kilo_bad += 1
+        if kilo_bad <= 3: bad(f"kilo-code: {rel_} does not parse ({type(e).__name__}: {e})")
+        continue
+    if "name" in data:
+        kilo_bad += 1
+        if kilo_bad <= 3:
+            bad(f"kilo-code: {rel_} carries a 'name' key ({str(data['name'])[:40]!r}) — Kilo Code "
+                f"takes the agent's identity from the filename and does not read 'name'")
+    if str(data.get("mode", "")).strip() != "all":
+        kilo_bad += 1
+        if kilo_bad <= 3: bad(f"kilo-code: {rel_} mode is {data.get('mode')!r}, want 'all'")
+if kilo_bad:
+    if kilo_bad > 3: bad(f"kilo-code: ...and {kilo_bad-3} more frontmatter shape problems")
+elif os.path.isdir(os.path.join(OUT, "kilo-code", "agents")):
+    ok("kilo-code: every agent carries mode: all and no name: key (Kilo's own contract)")
 
 # --- Layer A (color): a grey agent should be a grey agent ---------------------
 # resolve_opencode_color() maps a name it does not know to #6B7280 and says

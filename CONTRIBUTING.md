@@ -233,6 +233,8 @@ quickstart guide wearing an agent costume does not.
 
 **Codex Compatibility**: Codex custom agents are generated as standalone TOML files. The Codex integration keeps a minimal 1:1 mapping: `name` and `description` are copied from frontmatter, and the Markdown body becomes `developer_instructions`. Source-only metadata such as `color`, `emoji`, `vibe`, and other unsupported frontmatter fields are omitted.
 
+**Kilo Code Compatibility**: Kilo Code derives the agent name from the filename, so `kilo-agent-md` output carries no `name` key — frontmatter is `description` plus `mode: all` (picker-selectable *and* delegatable via the `task` tool). Because there is no `name` key, this shape is **not** byte-identical to `gemini-md`/`qwen-md`; it needs its own format name rather than reuse. Kilo's frontmatter accepts `description`, `mode`, `color`, `model`, and `permission` — but no `tools` key — so `color`/`emoji` from the source agents are omitted.
+
 ### Adding a Tool Integration
 
 Want agency-agents to install into a new tool (a CLI, editor, or agent runtime)? First, **[open a Discussion](https://github.com/msitarzewski/agency-agents/discussions)** — new integration platforms are a "discuss first" change (see the PR Process below). Once there's alignment, a clean integration is small — usually **~5 files, never the converted output itself.** The just-merged Mistral Vibe integration is a good worked example to copy.
